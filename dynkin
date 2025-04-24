@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynkin-System Illustration</title>
+    <style>
+        .element {
+            display: inline-block;
+            padding: 10px;
+            margin: 5px;
+            background-color: #eee;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .selected {
+            background-color: lightblue;
+        }
+        .set {
+            margin: 5px;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="section">
+        <h3>Universelle Menge Ω = {1,2,3,4,5}</h3>
+        <div id="universalSet">
+            <div class="element" data-value="1">1</div>
+            <div class="element" data-value="2">2</div>
+            <div class="element" data-value="3">3</div>
+            <div class="element" data-value="4">4</div>
+            <div class="element" data-value="5">5</div>
+        </div>
+        <button onclick="addGenerator()">Als Generator hinzufügen</button>
+    </div>
+
+    <div class="section">
+        <h3>Generatoren:</h3>
+        <div id="generators">∅</div>
+    </div>
+
+    <div class="section">
+        <h3>Erzeugtes Dynkin-System:</h3>
+        <div id="dynkinSystem">{Ω, ∅}</div>
+    </div>
+
+    <script>
+        let generators = [];
+        let selectedElements = new Set();
+
+        function toggleElement(element) {
+            const value = element.getAttribute('data-value');
+            if (selectedElements.has(value)) {
+                selectedElements.delete(value);
+                element.classList.remove('selected');
+            } else {
+                selectedElements.add(value);
+                element.classList.add('selected');
+            }
+        }
+
+        function addGenerator() {
+            // Bitmask aus ausgewählten Elementen erstellen
+            let bitmask = 0;
+            selectedElements.forEach(value => {
+                const bit = parseInt(value) - 1; // Umrechnung 1-5 → 0-4
+                bitmask |= (1 << bit);
+            });
+
+            // Nur neue Generatoren hinzufügen
+            if (!generators.includes(bitmask)) {
+                generators.push(bitmask);
+                updateDisplays();
+            }
+
+            // Auswahl zurücksetzen
+            selectedElements.clear();
+            document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
+        }
+
+        function updateDisplays() {
+            // Generatoren aktualisieren
+            document.getElementById('generators').innerHTML = 
+                generators.map(g => setToString(g)).join(', ') || '∅';
+
+            // Dynkin-System berechnen und anzeigen
+            const dynkin = generateDynkin(generators);
+            document.getElementById('dynkinSystem').innerHTML = 
+                dynkin.map(g => setToString(g)).join(', ');
+        }
+
+        function setToString(bitmask) {
+            const universal = (1 << 5) - 1;
+            if (bitmask === universal) return 'Ω';
+            if (bitmask === 0) return '∅';
+            
+            const elements = [];
+            for (let i = 0; i < 5; i++) {
+                if (bitmask & (1 << i)) elements.push(i + 1);
+            }
+            return `{${elements.join(', ')}}`;
+        }
+
+        function generateDynkin(generators) {
+            const universal = (1 << 5) - 1; // 31 (0b11111)
+            const dynkin = new Set([universal]);
+            
+            generators.forEach(g => dynkin.add(g));
+            
+            let changed;
+            do {
+                changed = false;
+                const current = Array.from(dynkin);
+
+                // Komplemente hinzufügen
+                current.forEach(set => {
+                    const comp = universal ^ set;
+                    if (!dynkin.has(comp)) {
+                        dynkin.add(comp);
+                        changed = true;
+                    }
+                });
+
+                // Vereinigungen disjunkter Paare
+                current.forEach(a => {
+                    current.forEach(b => {
+                        if ((a & b) === 0) { // disjunkt
+                            const union = a | b;
+                            if (!dynkin.has(union)) {
+                                dynkin.add(union);
+                                changed = true;
+                            }
+                        }
+                    });
+                });
+            } while (changed);
+
+            return Array.from(dynkin).sort((a, b) => a - b);
+        }
+
+        // Event-Listener für Elemente
+        document.querySelectorAll('.element').forEach(el => {
+            el.addEventListener('click', () => toggleElement(el));
+        });
+    </script>
+</body>
+</html>
